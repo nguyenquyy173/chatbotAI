@@ -171,7 +171,7 @@ Ngôn ngữ giao diện: ${language || "vi-VN"}.`;
         generationConfig: {
           temperature: 0.35,
           topP: 0.9,
-          maxOutputTokens: 1200
+          maxOutputTokens: 4096
         }
       }),
       signal: controller.signal
