@@ -1,0 +1,7 @@
+[
+  {
+    "title": "Dữ liệu mẫu",
+    "url": "https://www.datxetaidailoan.com/",
+    "content": "Thay nội dung này bằng database.json thật của bạn. Backend sẽ tìm các mục liên quan trước khi gửi câu hỏi tới Gemini."
+  }
+]
