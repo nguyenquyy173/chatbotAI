@@ -255,155 +255,75 @@ function buildContext(items) {
   return blocks.join("\n\n");
 }
 
-function buildActions(message) {
+function buildActions(
+  message,
+  actionFlags = {}
+) {
   const text = normalizeText(message);
   const actions = [];
 
-  const carIntent =
+  /*
+  Regex được giữ lại làm lớp dự phòng,
+  phòng trường hợp Gemini trả actionFlags sai.
+  */
+  const fallbackCarIntent =
     /(dat xe|thue xe|can xe|muon xe|goi xe|dua don|don san bay|xe san bay|taxi|book xe)/.test(
       text
     );
 
-  const visaIntent =
+  const fallbackVisaIntent =
     /(visa|thi thuc|xin visa|lam visa|tu van visa|ho so visa|gia han visa)/.test(
       text
     );
 
-  if (carIntent) {
+  const fallbackStaffIntent =
+    /(ket noi.*nhan vien|gap nhan vien|noi chuyen.*nhan vien|noi chuyen.*nguoi that|lien he.*nhan vien|tu van vien|ho tro truc tiep)/.test(
+      text
+    );
+
+  const shouldShowCar =
+    actionFlags.carBooking === true ||
+    fallbackCarIntent;
+
+  const shouldShowVisa =
+    actionFlags.visaConsultation === true ||
+    fallbackVisaIntent;
+
+  const shouldShowStaff =
+    actionFlags.contactStaff === true ||
+    fallbackStaffIntent;
+
+  if (shouldShowCar) {
     actions.push({
       label: "Đặt xe qua Messenger",
       url: MESSENGER_URL
     });
   }
 
-  if (visaIntent) {
+  if (shouldShowVisa) {
     actions.push({
       label: "Tư vấn visa",
       url: VISA_URL
     });
   }
 
+  /*
+  Chỉ thêm nút hỗ trợ chung nếu chưa có nút
+  đặt xe hoặc tư vấn visa.
+  */
+  if (
+    shouldShowStaff &&
+    !shouldShowCar &&
+    !shouldShowVisa
+  ) {
+    actions.push({
+      label: "Kết nối với nhân viên",
+      url: MESSENGER_URL
+    });
+  }
+
   return actions;
 }
-
-/*
-Form memory cố định:
-
-{
-  numberOfPeople: 4,
-  itinerary: [
-    {
-      day: "Ngày 1",
-      visits: [
-        {
-          location: "Cửu Phần",
-          time: "Buổi sáng"
-        }
-      ]
-    }
-  ],
-  specialRequests: [],
-  otherInformation: []
-}
-*/
-
-const EMPTY_MEMORY = {
-  numberOfPeople: null,
-  itinerary: [],
-  specialRequests: [],
-  otherInformation: []
-};
-
-const GEMINI_RESPONSE_SCHEMA = {
-  type: "OBJECT",
-
-  properties: {
-    answer: {
-      type: "STRING"
-    },
-
-    memory: {
-      type: "OBJECT",
-
-      properties: {
-        numberOfPeople: {
-          type: "INTEGER",
-          nullable: true
-        },
-
-        itinerary: {
-          type: "ARRAY",
-
-          items: {
-            type: "OBJECT",
-
-            properties: {
-              day: {
-                type: "STRING"
-              },
-
-              visits: {
-                type: "ARRAY",
-
-                items: {
-                  type: "OBJECT",
-
-                  properties: {
-                    location: {
-                      type: "STRING"
-                    },
-
-                    time: {
-                      type: "STRING"
-                    }
-                  },
-
-                  required: [
-                    "location",
-                    "time"
-                  ]
-                }
-              }
-            },
-
-            required: [
-              "day",
-              "visits"
-            ]
-          }
-        },
-
-        specialRequests: {
-          type: "ARRAY",
-
-          items: {
-            type: "STRING"
-          }
-        },
-
-        otherInformation: {
-          type: "ARRAY",
-
-          items: {
-            type: "STRING"
-          }
-        }
-      },
-
-      required: [
-        "numberOfPeople",
-        "itinerary",
-        "specialRequests",
-        "otherInformation"
-      ]
-    }
-  },
-
-  required: [
-    "answer",
-    "memory"
-  ]
-};
 
 function sanitizeMemory(value) {
   const memory =
@@ -792,7 +712,17 @@ ${message}
       answer,
       memory: sanitizeMemory(
         parsed.memory
-      )
+      ),
+      actionFlags: {
+        contactStaff:
+          parsed.actionFlags?.contactStaff === true,
+    
+        carBooking:
+          parsed.actionFlags?.carBooking === true,
+    
+        visaConsultation:
+          parsed.actionFlags?.visaConsultation === true
+      }
     };
   } finally {
     clearTimeout(timeout);
@@ -868,9 +798,16 @@ app.post(
 
       res.json({
         answer: result.answer,
+      
         memory: result.memory,
-        actions:
-          buildActions(message),
+      
+        actionFlags:
+          result.actionFlags,
+      
+        actions: buildActions(
+          message,
+          result.actionFlags
+        ),
 
         sources: matches
           .filter((item) => item.url)
