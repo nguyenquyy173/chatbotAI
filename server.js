@@ -663,7 +663,7 @@ async function callGemini({
     
     visaConsultation = true chỉ khi khách thể hiện rõ muốn làm visa, tư vấn visa, kiểm tra hồ sơ visa, gia hạn visa hoặc liên hệ nhân viên visa.
     - Nếu khách chỉ hỏi kiến thức chung về visa, visaConsultation = false.
-    
+    3. Nếu có 1 trong 2 flag là true, cần gửi khách phần thông tin tóm tắt và hướng dẫn khách gửi cho nhân viên: "Bạn hãy sao chép phần thông tin dưới đây, sau đó bấm nút đặt xe để gửi cho nhân viên tư vấn:"
     QUY TẮC ANSWER:
     - Chỉ nói "bấm nút đặt xe bên dưới" khi carBooking = true.
     - Chỉ nói "bấm nút tư vấn visa bên dưới" khi visaConsultation = true.
