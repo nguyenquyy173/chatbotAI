@@ -276,11 +276,6 @@ function buildActions(
       text
     );
 
-  const fallbackStaffIntent =
-    /(ket noi.*nhan vien|gap nhan vien|noi chuyen.*nhan vien|noi chuyen.*nguoi that|lien he.*nhan vien|tu van vien|ho tro truc tiep)/.test(
-      text
-    );
-
   const shouldShowCar =
     actionFlags.carBooking === true ||
     fallbackCarIntent;
@@ -288,10 +283,6 @@ function buildActions(
   const shouldShowVisa =
     actionFlags.visaConsultation === true ||
     fallbackVisaIntent;
-
-  const shouldShowStaff =
-    actionFlags.contactStaff === true ||
-    fallbackStaffIntent;
 
   if (shouldShowCar) {
     actions.push({
@@ -312,7 +303,6 @@ function buildActions(
   đặt xe hoặc tư vấn visa.
   */
   if (
-    shouldShowStaff &&
     !shouldShowCar &&
     !shouldShowVisa
   ) {
@@ -714,14 +704,14 @@ ${message}
         parsed.memory
       ),
       actionFlags: {
-        contactStaff:
-          parsed.actionFlags?.contactStaff === true,
-    
-        carBooking:
-          parsed.actionFlags?.carBooking === true,
-    
-        visaConsultation:
-          parsed.actionFlags?.visaConsultation === true
+        type: "OBJECT",
+
+        properties: {
+          carBooking:
+            parsed.actionFlags?.carBooking === true,
+      
+          visaConsultation:
+            parsed.actionFlags?.visaConsultation === true
       }
     };
   } finally {
