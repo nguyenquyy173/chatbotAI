@@ -9,9 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 8080);
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+
+const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY || "";
+
 const GEMINI_MODEL =
-  process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  process.env.GEMINI_MODEL ||
+  "gemini-2.5-flash";
 
 const MAX_CONTEXT_CHARS = Number(
   process.env.MAX_CONTEXT_CHARS || 12000
@@ -61,12 +65,21 @@ app.use(
       }
 
       callback(
-        new Error("Origin không được phép bởi CORS.")
+        new Error(
+          "Origin không được phép bởi CORS."
+        )
       );
     },
 
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"]
+    methods: [
+      "GET",
+      "POST",
+      "OPTIONS"
+    ],
+
+    allowedHeaders: [
+      "Content-Type"
+    ]
   })
 );
 
@@ -75,7 +88,10 @@ let knowledgeBase = [];
 function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
     .toLowerCase();
 }
 
@@ -85,18 +101,23 @@ function flattenJson(
   output = []
 ) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => {
-      flattenJson(
-        item,
-        `${source}[${index}]`,
-        output
-      );
-    });
+    value.forEach(
+      (item, index) => {
+        flattenJson(
+          item,
+          `${source}[${index}]`,
+          output
+        );
+      }
+    );
 
     return output;
   }
 
-  if (value && typeof value === "object") {
+  if (
+    value &&
+    typeof value === "object"
+  ) {
     const title =
       value.title ||
       value.name ||
@@ -140,7 +161,10 @@ function flattenJson(
 async function loadKnowledgeBase() {
   try {
     const raw = await readFile(
-      path.join(__dirname, "database.json"),
+      path.join(
+        __dirname,
+        "database.json"
+      ),
       "utf8"
     );
 
@@ -175,12 +199,20 @@ function tokenize(text) {
     .split(
       /[^a-z0-9\u00c0-\u024f\u1e00-\u1eff]+/i
     )
-    .filter((token) => token.length >= 2);
+    .filter(
+      (token) =>
+        token.length >= 2
+    );
 }
 
-function retrieveContext(query, limit = 5) {
+function retrieveContext(
+  query,
+  limit = 5
+) {
   const tokens = [
-    ...new Set(tokenize(query))
+    ...new Set(
+      tokenize(query)
+    )
   ];
 
   if (
@@ -192,19 +224,30 @@ function retrieveContext(query, limit = 5) {
 
   return knowledgeBase
     .map((item) => {
-      const haystack = normalizeText(
-        `${item.title} ${item.content}`
-      );
+      const title =
+        normalizeText(
+          item.title
+        );
+
+      const haystack =
+        normalizeText(
+          `${item.title} ${item.content}`
+        );
 
       let score = 0;
 
       for (const token of tokens) {
-        if (haystack.includes(token)) {
-          score += token.length >= 5 ? 3 : 1;
+        if (
+          haystack.includes(token)
+        ) {
+          score +=
+            token.length >= 5
+              ? 3
+              : 1;
         }
 
         if (
-          normalizeText(item.title).includes(token)
+          title.includes(token)
         ) {
           score += 3;
         }
@@ -223,8 +266,14 @@ function retrieveContext(query, limit = 5) {
         score
       };
     })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .filter(
+      (item) =>
+        item.score > 0
+    )
+    .sort(
+      (a, b) =>
+        b.score - a.score
+    )
     .slice(0, limit);
 }
 
@@ -233,7 +282,8 @@ function buildContext(items) {
   const blocks = [];
 
   for (
-    const [index, item] of items.entries()
+    const [index, item]
+      of items.entries()
   ) {
     const block =
       `[Nguồn ${index + 1}]\n` +
@@ -259,20 +309,23 @@ function buildActions(
   message,
   actionFlags = {}
 ) {
-  const text = normalizeText(message);
+  const text =
+    normalizeText(message);
+
   const actions = [];
 
   /*
-  Regex được giữ lại làm lớp dự phòng,
-  phòng trường hợp Gemini trả actionFlags sai.
+  Regex chỉ là lớp dự phòng.
+  Gemini actionFlags vẫn là tín hiệu chính.
   */
+
   const fallbackCarIntent =
-    /(dat xe|thue xe|can xe|muon xe|goi xe|dua don|don san bay|xe san bay|taxi|book xe)/.test(
+    /(dat xe|thue xe|muon dat xe|muon thue xe|book xe|bao gia xe|xe dua don|don san bay|xe san bay)/.test(
       text
     );
 
   const fallbackVisaIntent =
-    /(visa|thi thuc|xin visa|lam visa|tu van visa|ho so visa|gia han visa)/.test(
+    /(tu van visa|xin visa|lam visa|ho so visa|gia han visa|kiem tra ho so visa)/.test(
       text
     );
 
@@ -286,34 +339,144 @@ function buildActions(
 
   if (shouldShowCar) {
     actions.push({
-      label: "Đặt xe qua Messenger",
-      url: MESSENGER_URL
+      label:
+        "Đặt xe qua Messenger",
+
+      url:
+        MESSENGER_URL
     });
   }
 
   if (shouldShowVisa) {
     actions.push({
-      label: "Tư vấn visa",
-      url: VISA_URL
-    });
-  }
+      label:
+        "Tư vấn visa",
 
-  /*
-  Chỉ thêm nút hỗ trợ chung nếu chưa có nút
-  đặt xe hoặc tư vấn visa.
-  */
-  if (
-    !shouldShowCar &&
-    !shouldShowVisa
-  ) {
-    actions.push({
-      label: "Kết nối với nhân viên",
-      url: MESSENGER_URL
+      url:
+        VISA_URL
     });
   }
 
   return actions;
 }
+
+const EMPTY_MEMORY = {
+  numberOfPeople: null,
+  itinerary: [],
+  specialRequests: [],
+  otherInformation: []
+};
+
+const GEMINI_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+
+  properties: {
+    answer: {
+      type: "STRING"
+    },
+
+    memory: {
+      type: "OBJECT",
+
+      properties: {
+        numberOfPeople: {
+          type: "INTEGER",
+          nullable: true
+        },
+
+        itinerary: {
+          type: "ARRAY",
+
+          items: {
+            type: "OBJECT",
+
+            properties: {
+              day: {
+                type: "STRING"
+              },
+
+              visits: {
+                type: "ARRAY",
+
+                items: {
+                  type: "OBJECT",
+
+                  properties: {
+                    location: {
+                      type: "STRING"
+                    },
+
+                    time: {
+                      type: "STRING"
+                    }
+                  },
+
+                  required: [
+                    "location",
+                    "time"
+                  ]
+                }
+              }
+            },
+
+            required: [
+              "day",
+              "visits"
+            ]
+          }
+        },
+
+        specialRequests: {
+          type: "ARRAY",
+
+          items: {
+            type: "STRING"
+          }
+        },
+
+        otherInformation: {
+          type: "ARRAY",
+
+          items: {
+            type: "STRING"
+          }
+        }
+      },
+
+      required: [
+        "numberOfPeople",
+        "itinerary",
+        "specialRequests",
+        "otherInformation"
+      ]
+    },
+
+    actionFlags: {
+      type: "OBJECT",
+
+      properties: {
+        carBooking: {
+          type: "BOOLEAN"
+        },
+
+        visaConsultation: {
+          type: "BOOLEAN"
+        }
+      },
+
+      required: [
+        "carBooking",
+        "visaConsultation"
+      ]
+    }
+  },
+
+  required: [
+    "answer",
+    "memory",
+    "actionFlags"
+  ]
+};
 
 function sanitizeMemory(value) {
   const memory =
@@ -322,62 +485,77 @@ function sanitizeMemory(value) {
       ? value
       : {};
 
-  return {
-    numberOfPeople:
-      Number.isInteger(
-        memory.numberOfPeople
-      ) &&
-      memory.numberOfPeople > 0
-        ? memory.numberOfPeople
-        : null,
+  const numberOfPeople =
+    Number.isInteger(
+      memory.numberOfPeople
+    ) &&
+    memory.numberOfPeople > 0
+      ? memory.numberOfPeople
+      : null;
 
-    itinerary: Array.isArray(
+  const itinerary =
+    Array.isArray(
       memory.itinerary
     )
       ? memory.itinerary
           .filter(
             (item) =>
               item &&
-              typeof item === "object"
+              typeof item ===
+                "object"
           )
-          .map((item) => ({
-            day: String(
-              item.day || ""
-            ).trim(),
+          .map((item) => {
+            const day =
+              String(
+                item.day || ""
+              ).trim();
 
-            visits: Array.isArray(
-              item.visits
-            )
-              ? item.visits
-                  .filter(
-                    (visit) =>
-                      visit &&
-                      typeof visit ===
-                        "object"
-                  )
-                  .map((visit) => ({
-                    location: String(
-                      visit.location || ""
-                    ).trim(),
+            const visits =
+              Array.isArray(
+                item.visits
+              )
+                ? item.visits
+                    .filter(
+                      (visit) =>
+                        visit &&
+                        typeof visit ===
+                          "object"
+                    )
+                    .map(
+                      (visit) => ({
+                        location:
+                          String(
+                            visit.location ||
+                              ""
+                          ).trim(),
 
-                    time: String(
-                      visit.time || ""
-                    ).trim()
-                  }))
-                  .filter(
-                    (visit) =>
-                      visit.location
-                  )
-              : []
-          }))
+                        time:
+                          String(
+                            visit.time ||
+                              ""
+                          ).trim()
+                      })
+                    )
+                    .filter(
+                      (visit) =>
+                        visit.location
+                    )
+                : [];
+
+            return {
+              day,
+              visits
+            };
+          })
           .filter(
             (item) =>
               item.day &&
               item.visits.length
           )
-      : [],
+      : [];
 
-    specialRequests: Array.isArray(
+  const specialRequests =
+    Array.isArray(
       memory.specialRequests
     )
       ? [
@@ -389,9 +567,10 @@ function sanitizeMemory(value) {
               .filter(Boolean)
           )
         ]
-      : [],
+      : [];
 
-    otherInformation: Array.isArray(
+  const otherInformation =
+    Array.isArray(
       memory.otherInformation
     )
       ? [
@@ -403,7 +582,32 @@ function sanitizeMemory(value) {
               .filter(Boolean)
           )
         ]
-      : []
+      : [];
+
+  return {
+    numberOfPeople,
+    itinerary,
+    specialRequests,
+    otherInformation
+  };
+}
+
+function sanitizeActionFlags(
+  value
+) {
+  const flags =
+    value &&
+    typeof value === "object"
+      ? value
+      : {};
+
+  return {
+    carBooking:
+      flags.carBooking === true,
+
+    visaConsultation:
+      flags.visaConsultation ===
+      true
   };
 }
 
@@ -419,9 +623,10 @@ async function callGemini({
     );
   }
 
-  const currentMemory = sanitizeMemory(
-    memory || EMPTY_MEMORY
-  );
+  const currentMemory =
+    sanitizeMemory(
+      memory || EMPTY_MEMORY
+    );
 
   const systemInstruction = `
 Bạn là trợ lý du lịch Đài Loan của website Ăn chơi Đài Loan.
@@ -435,49 +640,69 @@ QUY TẮC TRẢ LỜI:
 - Không bịa giá, lịch trình, quy định, địa chỉ hoặc thông tin thời gian thực.
 - Không tự ý nói về visa nếu người dùng không hỏi.
 - Không chèn nút hoặc markdown link trong nội dung.
-- Backend sẽ xử lý các nút riêng.
+- Backend sẽ xử lý nút riêng.
 - Chỉ cảnh báo khi thông tin có thể thay đổi như giá vé, giờ mở cửa, lịch tàu hoặc quy định visa.
 - Không hỏi lại thông tin đã có trong MEMORY HIỆN TẠI.
 
-Bạn phải luôn trả về đúng hai biến:
+Bạn phải luôn trả về đúng ba biến:
 
 1. answer:
 Câu trả lời trực tiếp cho khách.
 
 2. memory:
 Bản tóm tắt đầy đủ sau khi cập nhật từ tin nhắn hiện tại.
-3. actionFlags:
-Các tín hiệu để backend hiển thị nút hành động.
 
-actionFlags có form:
+3. actionFlags:
+Tín hiệu để backend hiển thị nút đặt xe hoặc tư vấn visa.
+
+ACTION FLAGS có form:
 
 {
   "carBooking": false,
   "visaConsultation": false
 }
+
 QUY TẮC ACTION FLAGS:
 
-- carBooking = true khi khách:
+- carBooking = true khi khách thể hiện rõ rằng họ:
   - Muốn đặt xe.
   - Muốn thuê xe.
-  - Muốn báo giá xe.
+  - Muốn nhận báo giá xe.
   - Muốn đặt xe đưa đón sân bay.
   - Muốn nhân viên tư vấn dịch vụ xe.
+  - Muốn liên hệ để đặt xe.
 
-- visaConsultation = true khi khách:
+- visaConsultation = true khi khách thể hiện rõ rằng họ:
   - Muốn tư vấn visa.
   - Muốn làm visa.
   - Muốn kiểm tra hồ sơ visa.
   - Muốn liên hệ nhân viên visa.
 
-- Nếu khách chỉ hỏi thông tin chung về xe nhưng chưa muốn đặt hoặc liên hệ, carBooking = false.
+- Nếu khách chỉ hỏi thông tin chung về phương tiện hoặc cách đi, carBooking = false.
 
-- Nếu khách chỉ hỏi kiến thức chung về visa nhưng chưa muốn tư vấn trực tiếp, visaConsultation = false.
+- Nếu khách chỉ hỏi kiến thức chung về visa, visaConsultation = false.
 
-- Không được nói "tôi đã kết nối" hoặc "tôi sẽ chuyển bạn" nếu actionFlags đều là false.
+- Nếu khách chỉ nói muốn kết nối với nhân viên nhưng chưa nói rõ đặt xe hay visa:
+  - carBooking = false.
+  - visaConsultation = false.
+  - Trong answer, hỏi khách muốn tư vấn đặt xe hay tư vấn visa.
+  - Không nói rằng đã kết nối với nhân viên.
+  - Không nói rằng đã chuyển yêu cầu cho nhân viên.
 
-- Khi một action flag là true, hãy nói tự nhiên rằng khách có thể bấm nút bên dưới để liên hệ.
+- Khi carBooking = true, hãy nói khách có thể bấm nút đặt xe bên dưới.
+
+- Khi visaConsultation = true, hãy nói khách có thể bấm nút tư vấn visa bên dưới.
+
 FORM MEMORY CỐ ĐỊNH:
+
+{
+  "numberOfPeople": null,
+  "itinerary": [],
+  "specialRequests": [],
+  "otherInformation": []
+}
+
+Ý nghĩa:
 
 - numberOfPeople:
 Tổng số người trong chuyến đi.
@@ -486,7 +711,8 @@ Nếu chưa biết thì trả về null.
 - itinerary:
 Danh sách địa điểm và thời gian theo từng ngày.
 
-Mỗi phần tử itinerary có:
+Ví dụ:
+
 {
   "day": "Ngày 1",
   "visits": [
@@ -534,9 +760,10 @@ QUY TẮC CẬP NHẬT MEMORY:
 - Không lưu số thẻ ngân hàng.
 - Không lưu dữ liệu thanh toán nhạy cảm.
 
-Ví dụ:
+VÍ DỤ:
 
 MEMORY HIỆN TẠI:
+
 {
   "numberOfPeople": 4,
   "itinerary": [],
@@ -545,9 +772,11 @@ MEMORY HIỆN TẠI:
 }
 
 Khách nói:
+
 "Ngày 1 tôi muốn đi Cửu Phần buổi sáng."
 
-Memory mới phải là:
+Memory mới:
+
 {
   "numberOfPeople": 4,
   "itinerary": [
@@ -569,9 +798,10 @@ Ngôn ngữ giao diện:
 ${language || "vi-VN"}
 `;
 
-  const sourceText = context
-    ? `Dữ liệu tham khảo nội bộ:\n${context}`
-    : "Không tìm thấy dữ liệu nội bộ phù hợp.";
+  const sourceText =
+    context
+      ? `Dữ liệu tham khảo nội bộ:\n${context}`
+      : "Không tìm thấy dữ liệu nội bộ phù hợp.";
 
   const userText = `
 ${sourceText}
@@ -596,64 +826,73 @@ ${message}
   const controller =
     new AbortController();
 
-  const timeout = setTimeout(
-    () => controller.abort(),
-    40000
-  );
-
-  try {
-    const response = await fetch(
-      endpoint,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-
-          "x-goog-api-key":
-            GEMINI_API_KEY
-        },
-
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [
-              {
-                text: systemInstruction
-              }
-            ]
-          },
-
-          contents: [
-            {
-              role: "user",
-
-              parts: [
-                {
-                  text: userText
-                }
-              ]
-            }
-          ],
-
-          generationConfig: {
-            temperature: 0.25,
-            topP: 0.9,
-            maxOutputTokens: 1800,
-            responseMimeType:
-              "application/json",
-            responseSchema:
-              GEMINI_RESPONSE_SCHEMA
-          }
-        }),
-
-        signal: controller.signal
-      }
+  const timeout =
+    setTimeout(
+      () =>
+        controller.abort(),
+      40000
     );
 
-    const data = await response
-      .json()
-      .catch(() => ({}));
+  try {
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "x-goog-api-key":
+              GEMINI_API_KEY
+          },
+
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [
+                {
+                  text:
+                    systemInstruction
+                }
+              ]
+            },
+
+            contents: [
+              {
+                role: "user",
+
+                parts: [
+                  {
+                    text:
+                      userText
+                  }
+                ]
+              }
+            ],
+
+            generationConfig: {
+              temperature: 0.25,
+              topP: 0.9,
+              maxOutputTokens: 1800,
+
+              responseMimeType:
+                "application/json",
+
+              responseSchema:
+                GEMINI_RESPONSE_SCHEMA
+            }
+          }),
+
+          signal:
+            controller.signal
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
 
     if (!response.ok) {
       const detail =
@@ -664,10 +903,11 @@ ${message}
     }
 
     const rawText =
-      data?.candidates?.[0]?.content
-        ?.parts
+      data?.candidates?.[0]
+        ?.content?.parts
         ?.map(
-          (part) => part.text || ""
+          (part) =>
+            part.text || ""
         )
         .join("")
         .trim();
@@ -681,16 +921,23 @@ ${message}
     let parsed;
 
     try {
-      parsed = JSON.parse(rawText);
+      parsed =
+        JSON.parse(rawText);
     } catch {
+      console.error(
+        "Gemini raw response:",
+        rawText
+      );
+
       throw new Error(
         "Gemini trả về JSON không hợp lệ."
       );
     }
 
-    const answer = String(
-      parsed.answer || ""
-    ).trim();
+    const answer =
+      String(
+        parsed.answer || ""
+      ).trim();
 
     if (!answer) {
       throw new Error(
@@ -700,83 +947,108 @@ ${message}
 
     return {
       answer,
-      memory: sanitizeMemory(
-        parsed.memory
-      ),
-      actionFlags: {
-        type: "OBJECT",
 
-        properties: {
-          carBooking:
-            parsed.actionFlags?.carBooking === true,
-      
-          visaConsultation:
-            parsed.actionFlags?.visaConsultation === true
-      }
+      memory:
+        sanitizeMemory(
+          parsed.memory
+        ),
+
+      actionFlags:
+        sanitizeActionFlags(
+          parsed.actionFlags
+        )
     };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-app.get("/", (_req, res) => {
-  res.json({
-    service:
-      "taiwan-travel-chatbot",
-    status: "ok"
-  });
-});
+app.get(
+  "/",
+  (_req, res) => {
+    res.json({
+      service:
+        "taiwan-travel-chatbot",
 
-app.get("/health", (_req, res) => {
-  res.json({
-    ok: true,
-    model: GEMINI_MODEL,
-    knowledgeRecords:
-      knowledgeBase.length,
-    apiKeyConfigured: Boolean(
-      GEMINI_API_KEY
-    )
-  });
-});
+      status:
+        "ok"
+    });
+  }
+);
+
+app.get(
+  "/health",
+  (_req, res) => {
+    res.json({
+      ok: true,
+
+      model:
+        GEMINI_MODEL,
+
+      knowledgeRecords:
+        knowledgeBase.length,
+
+      apiKeyConfigured:
+        Boolean(
+          GEMINI_API_KEY
+        )
+    });
+  }
+);
 
 app.post(
   "/chat",
   async (req, res) => {
-    const message = String(
-      req.body?.message || ""
-    ).trim();
+    const message =
+      String(
+        req.body?.message || ""
+      ).trim();
 
-    const language = String(
-      req.body?.language || "vi-VN"
-    ).trim();
+    const language =
+      String(
+        req.body?.language ||
+          "vi-VN"
+      ).trim();
 
-    const memory = sanitizeMemory(
-      req.body?.memory
-    );
+    const memory =
+      sanitizeMemory(
+        req.body?.memory
+      );
 
     if (!message) {
-      res.status(400).json({
-        error: "Thiếu trường message."
-      });
+      res
+        .status(400)
+        .json({
+          error:
+            "Thiếu trường message."
+        });
 
       return;
     }
 
-    if (message.length > 4000) {
-      res.status(400).json({
-        error:
-          "Câu hỏi quá dài. Tối đa 4.000 ký tự."
-      });
+    if (
+      message.length > 4000
+    ) {
+      res
+        .status(400)
+        .json({
+          error:
+            "Câu hỏi quá dài. Tối đa 4.000 ký tự."
+        });
 
       return;
     }
 
     try {
       const matches =
-        retrieveContext(message);
+        retrieveContext(
+          message
+        );
 
       const context =
-        buildContext(matches);
+        buildContext(
+          matches
+        );
 
       const result =
         await callGemini({
@@ -787,24 +1059,36 @@ app.post(
         });
 
       res.json({
-        answer: result.answer,
-      
-        memory: result.memory,
-      
+        answer:
+          result.answer,
+
+        memory:
+          result.memory,
+
         actionFlags:
           result.actionFlags,
-      
-        actions: buildActions(
-          message,
-          result.actionFlags
-        ),
 
-        sources: matches
-          .filter((item) => item.url)
-          .map((item) => ({
-            title: item.title,
-            url: item.url
-          }))
+        actions:
+          buildActions(
+            message,
+            result.actionFlags
+          ),
+
+        sources:
+          matches
+            .filter(
+              (item) =>
+                item.url
+            )
+            .map(
+              (item) => ({
+                title:
+                  item.title,
+
+                url:
+                  item.url
+              })
+            )
       });
     } catch (error) {
       console.error(
@@ -817,25 +1101,35 @@ app.post(
           error.message
         );
 
-      res.status(502).json({
-        error: regionError
-          ? "Gemini từ chối vị trí máy chủ. Hãy kiểm tra khu vực triển khai máy chủ."
-          : error.message ||
-            "Không thể tạo câu trả lời."
-      });
+      res
+        .status(502)
+        .json({
+          error:
+            regionError
+              ? "Gemini từ chối vị trí máy chủ. Hãy kiểm tra khu vực triển khai máy chủ."
+              : error.message ||
+                "Không thể tạo câu trả lời."
+        });
     }
   }
 );
 
 app.use(
-  (error, _req, res, _next) => {
+  (
+    error,
+    _req,
+    res,
+    _next
+  ) => {
     console.error(error);
 
-    res.status(500).json({
-      error:
-        error.message ||
-        "Lỗi máy chủ."
-    });
+    res
+      .status(500)
+      .json({
+        error:
+          error.message ||
+          "Lỗi máy chủ."
+      });
   }
 );
 
