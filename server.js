@@ -778,7 +778,7 @@ ${message}
             generationConfig: {
               temperature: 0.25,
               topP: 0.9,
-              maxOutputTokens: 1800,
+              maxOutputTokens: 4096,
 
               responseMimeType:
                 "application/json",
